@@ -150,13 +150,13 @@ pub export fn writeBarrier(blk: value.Value, i: usize, old_val: value.Value, new
     }
 }
 
-pub export fn setField(blk: value.Value, i: usize, val: value.Value) void {
+pub fn setField(blk: value.Value, i: usize, val: value.Value) void {
     const fld = value.fieldPtr(blk, i);
     writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Unordered), val);
     @fence(.Acquire);
     @atomicStore(value.Value, fld, val, .Release);
 }
-pub export fn setFields(blk: value.Value, val: value.Value) void {
+pub fn setFields(blk: value.Value, val: value.Value) void {
     std.debug.assert(value.isBlock(blk));
     for (0..value.size(blk)) |i| {
         setField(blk, i, val);

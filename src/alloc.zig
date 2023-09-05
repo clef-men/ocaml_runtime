@@ -17,7 +17,7 @@ pub fn alloc(wsz: usize, tag: value.Tag) value.Value {
             const blk = memory.allocSmall(wsz, tag, void, memory.allocSmallGc, {});
             if (tag < value.tag_no_scan) {
                 for (0..wsz) |i| {
-                    @atomicStore(value.Value, value.fieldPtr(blk, i), value.unit, .Unordered);
+                    value.setField(blk, i, value.unit);
                 }
             }
             return blk;
@@ -26,7 +26,7 @@ pub fn alloc(wsz: usize, tag: value.Tag) value.Value {
         const blk = memory.allocShared(wsz, tag, 0);
         if (tag < value.tag_no_scan) {
             for (0..wsz) |i| {
-                @atomicStore(value.Value, value.fieldPtr(blk, i), value.unit, .Unordered);
+                value.setField(blk, i, value.unit);
             }
         }
         minor_gc.checkUrgentGc(blk);
@@ -59,7 +59,7 @@ fn allocSmallAux(comptime wsz: comptime_int, tag: value.Tag, vals: *[2 * wsz]val
     std.debug.assert(tag <= value.tag_max);
     const blk = memory.allocSmall(wsz, tag, [*]value.Value, allocSmallAuxGc, vals);
     for (0..wsz) |i| {
-        @atomicStore(value.Value, value.fieldPtr(blk, i), vals[i], .Unordered);
+        value.setField(blk, i, vals[i]);
     }
     return blk;
 }
@@ -132,7 +132,7 @@ pub export fn allocString(sz: usize) value.Value {
             break :blk blk;
         }
     };
-    @atomicStore(value.Value, value.fieldPtr(blk, wsz - 1), 0, .Unordered);
+    value.setField(blk, wsz - 1, 0);
     const i = wsz * @sizeOf(usize) - 1;
     value.bytePtr(blk, i).* = @intCast(i - sz);
     return blk;

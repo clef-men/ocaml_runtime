@@ -88,6 +88,9 @@ pub export fn fieldPtr(blk: Value, i: usize) *Value {
 pub export fn field(blk: Value, i: usize) Value {
     return @atomicLoad(Value, fieldPtr(blk, i), .Unordered);
 }
+pub export fn setField(blk: Value, i: usize, val: Value) void {
+    @atomicStore(Value, fieldPtr(blk, i), val, .Unordered);
+}
 
 pub export fn bytes(blk: Value) [*]u8 {
     return @ptrCast(fields(blk));
@@ -97,6 +100,9 @@ pub export fn bytePtr(blk: Value, i: usize) *u8 {
 }
 pub export fn byte(blk: Value, i: usize) u8 {
     return @atomicLoad(u8, bytePtr(blk, i), .Unordered);
+}
+pub export fn setByte(blk: Value, i: usize, byt: u8) void {
+    @atomicStore(u8, bytePtr(blk, i), byt, .Unordered);
 }
 
 pub export fn ofHeaderPtr(hdr: *Header) Value {

@@ -59,8 +59,8 @@ pub export fn raiseWithArgument(tag: value.Value, arg: value.Value) noreturn {
     frame.add(&roots);
 
     bucket = alloc.allocSmall(2, 0);
-    @atomicStore(value.Value, value.fieldPtr(bucket, 0), tag, .Unordered);
-    @atomicStore(value.Value, value.fieldPtr(bucket, 1), arg, .Unordered);
+    value.setField(bucket, 0, tag);
+    value.setField(bucket, 1, arg);
     raise(bucket);
 }
 pub fn raiseWithString(tag: value.Value, msg: []const u8) noreturn {

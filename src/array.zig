@@ -77,7 +77,7 @@ pub export fn make(len: value.Value, init: value.Value) value.Value {
     } else if (len_ <= config.max_young_wsize) {
         var blk = alloc.allocSmall(len_, 0);
         for (0..len_) |i| {
-            @atomicStore(value.Value, value.fieldPtr(blk, i), init, .Unordered);
+            value.setField(blk, i, init);
         }
         return blk;
     } else if (value.size_max < len_) {
@@ -90,7 +90,7 @@ pub export fn make(len: value.Value, init: value.Value) value.Value {
         std.debug.assert(!value.isBlock(init) or !value.isYoung(init));
         var blk = memory.allocShared(len_, 0, 0);
         for (0..len_) |i| {
-            @atomicStore(value.Value, value.fieldPtr(blk, i), init, .Unordered);
+            value.setField(blk, i, init);
         }
         return blk;
     }
