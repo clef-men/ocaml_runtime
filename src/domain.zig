@@ -6,6 +6,7 @@ const value = @import("value.zig");
 const memory = @import("memory.zig");
 const minor_gc = @import("minor_gc.zig");
 const major_gc = @import("major_gc.zig");
+const fiber = @import("fiber.zig");
 const shared_heap = @import("shared_heap.zig");
 const event = @import("event.zig");
 const misc = @import("misc.zig");
@@ -28,10 +29,11 @@ pub const State = struct {
     young_end: [*]value.Value align(8),
     young_trigger: [*]value.Value align(8),
     action_pending: bool align(8),
+    c_stack: ?*fiber.CStack align(8),
     minor_tables: *minor_gc.Tables align(8),
     allocated_words: usize align(8),
     major_slice_epoch: usize align(8),
-    local_roots: *const memory.Roots align(8),
+    local_roots: ?*const memory.Roots align(8),
     requested_major_slice: bool align(8),
     requested_global_major_slice: bool align(8),
     requested_minor_gc: bool align(8),

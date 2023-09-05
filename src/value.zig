@@ -12,6 +12,8 @@ pub const Color =
     usize;
 pub const Reserved =
     usize;
+pub const Exception =
+    isize;
 
 pub export const header_bytsize: usize =
     @sizeOf(Header);
@@ -35,6 +37,8 @@ pub export const tag_infix: Tag =
     249;
 pub export const tag_no_scan: Tag =
     251;
+pub export const tag_string: Tag =
+    252;
 
 pub export const color_bitsize: usize =
     2;
@@ -87,6 +91,16 @@ pub export fn field(blk: Value, i: usize) Value {
     return @atomicLoad(Value, fieldPtr(blk, i), .Unordered);
 }
 
+pub export fn bytes(blk: Value) [*]u8 {
+    return @ptrCast(fields(blk));
+}
+pub export fn bytePtr(blk: Value, i: usize) *u8 {
+    return @ptrCast(bytes(blk) + i);
+}
+pub export fn byte(blk: Value, i: usize) u8 {
+    return @atomicLoad(u8, bytePtr(blk, i), .Unordered);
+}
+
 pub export fn ofHeaderPtr(hdr: *Header) Value {
     return @bitCast(@intFromPtr(@as([*]Header, @ptrCast(hdr)) + 1));
 }
@@ -132,6 +146,16 @@ pub export fn headerMakeWithReserved(sz: usize, tag: Tag, col: Color, rsv: Reser
 }
 pub export fn headerMake(sz: usize, tag: Tag, col: Color) Header {
     return headerMakeWithReserved(sz, tag, col, 0);
+}
+
+pub export fn makeException(val: Value) Value {
+    return val | 2;
+}
+pub export fn isException(val: Value) bool {
+    return val & 3 == 2;
+}
+pub export fn exception(val: Value) Exception {
+    return val & ~@as(Value, 3);
 }
 
 pub export const unit =

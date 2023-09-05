@@ -119,3 +119,26 @@ pub export fn allocSmall(wsz: usize, tag: value.Tag) value.Value {
     std.debug.assert(tag != value.tag_infix);
     return memory.allocSmall(wsz, tag, void, memory.allocSmallGc, {});
 }
+
+pub export fn allocString(sz: usize) value.Value {
+    const wsz = (sz + @sizeOf(value.Value)) / @sizeOf(value.Value);
+    const blk = blk: {
+        if (wsz <= config.max_young_wsize) {
+            domain.checkState();
+            break :blk memory.allocSmall(wsz, value.tag_string, void, memory.allocSmallGc, {});
+        } else {
+            const blk = memory.allocShared(wsz, value.tag_string, 0);
+            minor_gc.checkUrgentGc(blk);
+            break :blk blk;
+        }
+    };
+    @atomicStore(value.Value, value.fieldPtr(blk, wsz - 1), 0, .Unordered);
+    const i = wsz * @sizeOf(usize) - 1;
+    value.bytePtr(blk, i).* = @intCast(i - sz);
+    return blk;
+}
+pub fn copyString(str: []const u8) value.Value {
+    const blk = allocString(str.len);
+    @memcpy(value.bytes(blk), str);
+    return blk;
+}

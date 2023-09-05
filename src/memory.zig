@@ -61,7 +61,7 @@ pub fn allocSmall(wsz: usize, tag: value.Tag, comptime GcData: type, gc: *const 
 }
 
 pub const Roots = struct {
-    next: *const Roots,
+    next: ?*const Roots,
     num_table: usize,
     num_item: usize,
     tables: [5][*]const value.Value,
@@ -119,7 +119,7 @@ pub const Roots = struct {
 };
 
 pub const Frame = struct {
-    roots: *const Roots,
+    roots: ?*const Roots,
 
     const Self = @This();
 
