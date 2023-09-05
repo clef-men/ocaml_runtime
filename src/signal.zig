@@ -44,8 +44,8 @@ pub export fn doPendingActionsExn() value.Value {
 }
 pub export fn processPendingActionsWithRootExn(root: value.Value) value.Value {
     if (checkPendingActions()) {
-        const frame = memory.Frame.begin();
-        defer frame.end();
+        const frame = memory.Frame.create();
+        defer frame.destroy();
 
         const roots = memory.Roots.make1(&root);
         frame.add(&roots);

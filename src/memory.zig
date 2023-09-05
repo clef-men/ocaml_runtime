@@ -123,10 +123,10 @@ pub const Frame = struct {
 
     const Self = @This();
 
-    pub fn begin() Self {
+    pub fn create() Self {
         return .{ .roots = domain.state.?.local_roots };
     }
-    pub fn end(self: Self) void {
+    pub fn destroy(self: Self) void {
         domain.state.?.local_roots = self.roots;
     }
     pub fn add(self: *const Self, roots: *const Roots) void {

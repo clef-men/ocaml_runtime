@@ -62,8 +62,8 @@ pub export fn unsafe_set(arr: value.Value, idx: value.Value, val: value.Value) v
 }
 
 pub export fn make(len: value.Value, init: value.Value) value.Value {
-    const frame = memory.Frame.begin();
-    defer frame.end();
+    const frame = memory.Frame.create();
+    defer frame.destroy();
 
     var res = value.unit;
     var roots = memory.Roots.make3(&len, &init, &res);

@@ -51,8 +51,8 @@ pub export fn raise(val: value.Value) noreturn {
     }
 }
 pub export fn raiseWithArgument(tag: value.Value, arg: value.Value) noreturn {
-    const frame = memory.Frame.begin();
-    defer frame.end();
+    const frame = memory.Frame.create();
+    defer frame.destroy();
 
     var bucket = value.unit;
     const roots = memory.Roots.make3(&tag, &arg, &bucket);
@@ -64,8 +64,8 @@ pub export fn raiseWithArgument(tag: value.Value, arg: value.Value) noreturn {
     raise(bucket);
 }
 pub fn raiseWithString(tag: value.Value, msg: []const u8) noreturn {
-    const frame = memory.Frame.begin();
-    defer frame.end();
+    const frame = memory.Frame.create();
+    defer frame.destroy();
 
     const roots = memory.Roots.make1(&tag);
     frame.add(&roots);

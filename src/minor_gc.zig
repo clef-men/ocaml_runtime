@@ -187,8 +187,8 @@ pub export fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory
 
 pub export fn checkUrgentGc(root: value.Value) void {
     if (domain.checkGcInterrupt(domain.state.?)) {
-        const frame = memory.Frame.begin();
-        defer frame.end();
+        const frame = memory.Frame.create();
+        defer frame.destroy();
 
         const roots = memory.Roots.make1(&root);
         frame.add(&roots);

@@ -40,8 +40,8 @@ pub export fn allocSharedCheckGc(wsz: usize, tag: value.Tag) value.Value {
 }
 
 fn allocSmallAuxGc(state: *domain.State, wsz: usize, vals: [*]value.Value) void {
-    const frame = memory.Frame.begin();
-    defer frame.end();
+    const frame = memory.Frame.create();
+    defer frame.destroy();
 
     const roots = memory.Roots.make(@ptrCast(vals + wsz), wsz);
     frame.add(&roots);
