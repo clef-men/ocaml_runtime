@@ -1,2 +1,2 @@
 // TODO
-pub extern fn unlockException() void;
+pub fn unlockException() void {}

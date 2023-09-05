@@ -10,6 +10,14 @@ const signal = @import("signal.zig");
 const event = @import("event.zig");
 const callback = @import("callback.zig");
 
+comptime {
+    @export(size, .{ .name = "caml_array_length" });
+    @export(get, .{ .name = "caml_array_get" });
+    @export(set, .{ .name = "caml_array_set" });
+    @export(unsafeGet, .{ .name = "caml_array_unsafe_get" });
+    @export(unsafeSet, .{ .name = "caml_array_unsafe_set" });
+}
+
 fn boundExn() value.Value {
     const static = struct {
         var exn =
@@ -27,15 +35,15 @@ fn boundExn() value.Value {
         }
     }
 }
-pub export fn boundError() noreturn {
+pub fn boundError() noreturn {
     fail.raise(boundExn());
 }
 
-pub export fn length(arr: value.Value) usize {
+pub fn size(arr: value.Value) callconv(.C) usize {
     return value.size(arr);
 }
 
-pub export fn get(arr: value.Value, idx: value.Value) value.Value {
+pub fn get(arr: value.Value, idx: value.Value) callconv(.C) value.Value {
     const idx_ = value.toInt(idx);
     if (idx_ < 0 or value.size(arr) <= idx_) {
         boundError();
@@ -43,7 +51,7 @@ pub export fn get(arr: value.Value, idx: value.Value) value.Value {
     return value.field(arr, @intCast(idx_));
 }
 
-pub export fn set(arr: value.Value, idx: value.Value, v: value.Value) value.Value {
+pub fn set(arr: value.Value, idx: value.Value, v: value.Value) callconv(.C) value.Value {
     const idx_ = value.toInt(idx);
     if (idx_ < 0 or value.size(arr) <= idx_) {
         boundError();
@@ -52,16 +60,16 @@ pub export fn set(arr: value.Value, idx: value.Value, v: value.Value) value.Valu
     return value.unit;
 }
 
-pub export fn unsafe_get(arr: value.Value, idx: value.Value) value.Value {
+pub fn unsafeGet(arr: value.Value, idx: value.Value) callconv(.C) value.Value {
     return value.field(arr, @intCast(value.toInt(idx)));
 }
 
-pub export fn unsafe_set(arr: value.Value, idx: value.Value, v: value.Value) value.Value {
+pub fn unsafeSet(arr: value.Value, idx: value.Value, v: value.Value) callconv(.C) value.Value {
     memory.setField(arr, @intCast(value.toInt(idx)), v);
     return value.unit;
 }
 
-pub export fn make(len: value.Value, init: value.Value) value.Value {
+pub fn make(len: value.Value, init: value.Value) callconv(.C) value.Value {
     const frame = memory.Frame.create();
     defer frame.destroy();
 

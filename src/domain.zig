@@ -11,15 +11,22 @@ const shared_heap = @import("shared_heap.zig");
 const event = @import("event.zig");
 const misc = @import("misc.zig");
 
-pub export const max_num_domain: usize =
-    if (@bitSizeOf(usize) == 64)
-    128
-else
-    16;
+comptime {
+    @export(max_num_domain, .{ .name = "caml_max_num_domain" });
+    @export(checkState, .{ .name = "caml_domain_check_state" });
+    @export(alone, .{ .name = "caml_domain_alone" });
+    @export(checkGcInterrupt, .{ .name = "caml_domain_check_gc_interrupt" });
+    @export(incomingInterruptsQueued, .{ .name = "caml_domain_incoming_interrupts_queued" });
+    @export(pollGcWork, .{ .name = "caml_domain_poll_gc_work" });
+    @export(handleGcInterrupt, .{ .name = "caml_domain_handle_gc_interrupt" });
+}
 
-pub export var minor_heaps_start: usize =
+pub const max_num_domain: usize =
+    if (@bitSizeOf(usize) == 64) 128 else 16;
+
+pub var minor_heaps_start: usize =
     undefined;
-pub export var minor_heaps_end: usize =
+pub var minor_heaps_end: usize =
     undefined;
 
 pub const State = struct {
@@ -43,7 +50,7 @@ pub const State = struct {
     id: usize align(8),
     inside_stw_handler: bool align(8),
 };
-pub export threadlocal var state: ?*State =
+pub threadlocal var state: ?*State =
     null;
 
 const Interruptor = struct {
@@ -123,17 +130,17 @@ var stw_domains = StwDomains{
     .internals = [1]?*Internal{null} ** max_num_domain,
 };
 
-pub export fn checkState() void {
+pub fn checkState() callconv(.C) void {
     if (state == null) {
         misc.fatalError("no domain lock held");
     }
 }
 
-pub export fn alone() bool {
+pub fn alone() callconv(.C) bool {
     return num_domain_running.load(.Acquire) == 1;
 }
 
-pub export fn checkGcInterrupt(state_: *State) bool {
+pub fn checkGcInterrupt(state_: *State) callconv(.C) bool {
     misc.allocPoint();
     const young_limit = state_.young_limit.load(.Unordered);
     if (@intFromPtr(state_.young_ptr) < young_limit) {
@@ -148,26 +155,26 @@ fn interrupt(interruptor: *Interruptor) void {
     interruptor.interrupt_word.store(std.math.maxInt(usize), .Release);
 }
 
-pub export fn incomingInterruptsQueued() bool {
+pub fn incomingInterruptsQueued() callconv(.C) bool {
     return internal.?.interruptor.interrupt_pending.load(.Acquire);
 }
 
 fn initialize_hook_default() void {
     return;
 }
-pub export var initialize_hook =
+pub var initialize_hook =
     &initialize_hook_default;
 
 fn stop_hook_default() void {
     return;
 }
-pub export var stop_hook =
+pub var stop_hook =
     &stop_hook_default;
 
 fn external_interrupt_hook_default() void {
     return;
 }
-pub export var external_interrupt_hook =
+pub var external_interrupt_hook =
     &external_interrupt_hook_default;
 
 fn decrementStwDomainsStillProcessing() void {
@@ -226,7 +233,12 @@ fn handleIncomingInterrupts(interruptor: *Interruptor) bool {
 }
 
 // TODO
-extern fn tryRunOnAllDomainsAsync(handler: *const fn (*State, *anyopaque, []*State) void, data: ?*anyopaque, leader_setup: ?*const fn (*State) void) bool;
+fn tryRunOnAllDomainsAsync(handler: *const fn (*State, *anyopaque, []*State) void, data: ?*anyopaque, leader_setup: ?*const fn (*State) void) bool {
+    _ = handler;
+    _ = data;
+    _ = leader_setup;
+    return undefined;
+}
 
 fn resetYoungLimit(state_: *State) void {
     std.debug.assert(@intFromPtr(state_.young_trigger) < @intFromPtr(state_.young_ptr));
@@ -269,7 +281,7 @@ fn globalMajorSliceCallback(state_: *State, unused: *anyopaque, participating: [
     _ = participating;
 }
 
-pub export fn pollGcWork() void {
+pub fn pollGcWork() callconv(.C) void {
     misc.allocPoint();
 
     const state_ = state.?;
@@ -315,7 +327,7 @@ pub export fn pollGcWork() void {
     resetYoungLimit(state_);
 }
 
-pub export fn handleGcInterrupt() void {
+pub fn handleGcInterrupt() callconv(.C) void {
     misc.allocPoint();
     if (incomingInterruptsQueued()) {
         event.begin(.interrupt_remote);

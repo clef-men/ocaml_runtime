@@ -8,6 +8,13 @@ const signal = @import("signal.zig");
 const event = @import("event.zig");
 const misc = @import("misc.zig");
 
+comptime {
+    @export(num_collection, .{ .name = "caml_minor_num_collection" });
+    @export(major_slice_epoch, .{ .name = "caml_minor_slice_epoch" });
+    @export(allocSmallDispatch, .{ .name = "caml_minor_alloc_small_dispatch" });
+    @export(checkUrgentGc, .{ .name = "caml_minor_check_urgence_gc" });
+}
+
 pub fn Table(comptime T: type) type {
     return struct {
         size: usize,
@@ -153,15 +160,15 @@ pub const Tables = struct {
     }
 };
 
-pub export var num_collection =
+pub var num_collection =
     std.atomic.Atomic(usize).init(0);
-pub export var major_slice_epoch =
+pub var major_slice_epoch =
     std.atomic.Atomic(usize).init(0);
 
 // TODO
-pub extern fn emptyMinorHeapsOnce() void;
+pub fn emptyMinorHeapsOnce() void {}
 
-pub export fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory.AllocSmallFlags) void {
+pub fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory.AllocSmallFlags) callconv(.C) void {
     const wsz_ = wsz + value.header_wsize;
 
     state.young_ptr += wsz_;
@@ -185,7 +192,7 @@ pub export fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory
     state.young_ptr -= wsz_;
 }
 
-pub export fn checkUrgentGc(root: value.Value) void {
+pub fn checkUrgentGc(root: value.Value) callconv(.C) void {
     if (domain.checkGcInterrupt(domain.state.?)) {
         const frame = memory.Frame.create();
         defer frame.destroy();
@@ -198,4 +205,4 @@ pub export fn checkUrgentGc(root: value.Value) void {
 }
 
 // TODO
-pub extern fn collect() void;
+pub fn collect() void {}

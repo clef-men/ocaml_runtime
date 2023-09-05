@@ -3,58 +3,76 @@ const std = @import("std");
 const value = @import("value.zig");
 const domain = @import("domain.zig");
 
+comptime {
+    @export(debug.isDebugTag, .{ .name = "caml_is_debug_tag" });
+    @export(debug.free_minor, .{ .name = "caml_debug_free_minor" });
+    @export(debug.free_major, .{ .name = "caml_debug_free_major" });
+    @export(debug.free_shrink, .{ .name = "caml_debug_free_shrink" });
+    @export(debug.free_truncate, .{ .name = "caml_debug_truncate" });
+    @export(debug.free_unused, .{ .name = "caml_debug_unused" });
+    @export(debug.uninit_minor, .{ .name = "caml_debug_uninit_minor" });
+    @export(debug.uninit_major, .{ .name = "caml_debug_uninit_major" });
+    @export(debug.uninit_align, .{ .name = "caml_debug_unit_align" });
+    @export(debug.filler_align, .{ .name = "caml_debug_filler_align" });
+    @export(debug.pool_magic, .{ .name = "caml_debug_pool_magic" });
+    @export(debug.uninit_stat, .{ .name = "caml_debug_uninit_stat" });
+    @export(noallocBegin, .{ .name = "caml_noalloc_begin" });
+    @export(noallocEnd, .{ .name = "caml_noalloc_end" });
+    @export(allocPoint, .{ .name = "caml_alloc_point" });
+}
+
 pub const debug = struct {
-    pub export fn makeValue(x: u8) value.Value {
+    pub fn makeValue(x: u8) value.Value {
         return @bitCast(if (@bitSizeOf(usize) == 64)
             0xD700D7D7D700D6D7 | (@as(usize, @intCast(x)) << 16) | (@as(usize, @intCast(x)) << 48)
         else
             0xD700D6D7 | (@as(usize, @intCast(x)) << 16));
     }
-    pub export fn isDebugTag(tag: value.Tag) bool {
+    pub fn isDebugTag(tag: value.Tag) callconv(.C) bool {
         return @bitCast(if (@bitSizeOf(usize) == 64)
             tag & 0xff00ffffff00ffff == 0xD700D7D7D700D6D7
         else
             tag & 0xff00ffff == 0xD700D6D7);
     }
 
-    pub export const free_minor =
+    pub const free_minor =
         makeValue(0x00);
-    pub export const free_major =
+    pub const free_major =
         makeValue(0x01);
-    pub export const free_shrink =
+    pub const free_shrink =
         makeValue(0x03);
-    pub export const free_truncate =
+    pub const free_truncate =
         makeValue(0x04);
-    pub export const free_unused =
+    pub const free_unused =
         makeValue(0x05);
-    pub export const uninit_minor =
+    pub const uninit_minor =
         makeValue(0x10);
-    pub export const uninit_major =
+    pub const uninit_major =
         makeValue(0x11);
-    pub export const uninit_align =
+    pub const uninit_align =
         makeValue(0x15);
-    pub export const filler_align =
+    pub const filler_align =
         makeValue(0x85);
-    pub export const pool_magic =
+    pub const pool_magic =
         makeValue(0x99);
 
-    pub export const uninit_stat: u8 =
+    pub const uninit_stat: u8 =
         0xD7;
 };
 
 threadlocal var noalloc_level: isize =
     0;
-pub export fn noallocBegin() isize {
+pub fn noallocBegin() callconv(.C) isize {
     const lvl = noalloc_level;
     noalloc_level = lvl + 1;
     return lvl;
 }
-pub export fn noallocEnd(lvl: *isize) void {
+pub fn noallocEnd(lvl: *isize) callconv(.C) void {
     const curr_lvl = noalloc_level - 1;
     noalloc_level = curr_lvl;
     std.debug.assert(lvl.* == curr_lvl);
 }
-pub export fn allocPoint() void {
+pub fn allocPoint() callconv(.C) void {
     std.debug.assert(noalloc_level == 0);
 }
 

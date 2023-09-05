@@ -8,6 +8,13 @@ const signal = @import("signal.zig");
 const io = @import("io.zig");
 const printexc = @import("printexc.zig");
 
+comptime {
+    @export(raise, .{ .name = "caml_raise_" });
+    @export(raiseWithArgument, .{ .name = "caml_raise_with_argument" });
+    @export(raiseIfException, .{ .name = "caml_raise_if_exception" });
+    @export(raiseOutOfMemory, .{ .name = "caml_raise_out_of_memory" });
+}
+
 const exception = struct {
     pub extern const out_of_memory: value.Value;
     pub extern const sys_error: value.Value;
@@ -25,7 +32,7 @@ const exception = struct {
 
 pub extern fn raiseException(state: *domain.State, val: value.Value) noreturn;
 
-pub export fn raise(v: value.Value) noreturn {
+pub fn raise(v: value.Value) callconv(.C) noreturn {
     domain.checkState();
 
     io.unlockException();
@@ -50,7 +57,7 @@ pub export fn raise(v: value.Value) noreturn {
         printexc.fatalUncaughtException(v_);
     }
 }
-pub export fn raiseWithArgument(tag: value.Value, arg: value.Value) noreturn {
+pub fn raiseWithArgument(tag: value.Value, arg: value.Value) callconv(.C) noreturn {
     const frame = memory.Frame.create();
     defer frame.destroy();
 
@@ -72,7 +79,7 @@ pub fn raiseWithString(tag: value.Value, msg: []const u8) noreturn {
 
     raiseWithArgument(tag, alloc.copyString(msg));
 }
-pub export fn raiseIfException(v: value.Value) void {
+pub fn raiseIfException(v: value.Value) callconv(.C) void {
     if (value.isException(v)) {
         raise(value.exception(v));
     }
@@ -82,6 +89,6 @@ pub fn invalidArgument(msg: []const u8) noreturn {
     raiseWithString(exception.invalid_argument, msg);
 }
 
-pub export fn raiseOutOfMemory() noreturn {
+pub fn raiseOutOfMemory() callconv(.C) noreturn {
     raise(exception.out_of_memory);
 }

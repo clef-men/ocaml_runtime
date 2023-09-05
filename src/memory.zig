@@ -12,7 +12,24 @@ const signal = @import("signal.zig");
 const event = @import("event.zig");
 const misc = @import("misc.zig");
 
-pub export fn clear(res: value.Value, wsz: usize) void {
+comptime {
+    @export(clear, .{ .name = "caml_memory_clear" });
+    @export(alloc_small_flags.dont_track, .{ .name = "caml_memory_dont_track" });
+    @export(alloc_small_flags.do_track, .{ .name = "caml_memory_do_track" });
+    @export(alloc_small_flags.from_c, .{ .name = "caml_memory_from_c" });
+    @export(alloc_small_flags.from_ocaml, .{ .name = "caml_memory_from_ocaml" });
+    @export(writeBarrier, .{ .name = "caml_memory_write_barrier" });
+    @export(setField, .{ .name = "caml_memory_set_field" });
+    @export(setFields, .{ .name = "caml_memory_set_fields" });
+    @export(initialize, .{ .name = "caml_memory_initialize" });
+    @export(atomicCas, .{ .name = "caml_memory_atomic_cas" });
+    @export(atomicLoad, .{ .name = "caml_memory_atomic_load" });
+    @export(atomicExchange, .{ .name = "caml_memory_atomic_exchange" });
+    @export(atomicFetchAdd, .{ .name = "caml_memory_atomic_fetch_add" });
+    @export(allocShared, .{ .name = "caml_memory_alloc_shared" });
+}
+
+pub fn clear(res: value.Value, wsz: usize) callconv(.C) void {
     if (builtin.mode == .Debug) {
         for (0..wsz) |i| {
             std.debug.assert(value.field(res, i) == misc.debug.free_minor);
@@ -24,13 +41,13 @@ pub export fn clear(res: value.Value, wsz: usize) void {
 pub const AllocSmallFlags =
     usize;
 pub const alloc_small_flags = struct {
-    pub export const dont_track: AllocSmallFlags =
+    pub const dont_track: AllocSmallFlags =
         0;
-    pub export const do_track: AllocSmallFlags =
+    pub const do_track: AllocSmallFlags =
         1;
-    pub export const from_c: AllocSmallFlags =
+    pub const from_c: AllocSmallFlags =
         0;
-    pub export const from_ocaml: AllocSmallFlags =
+    pub const from_ocaml: AllocSmallFlags =
         2;
 };
 
@@ -135,7 +152,7 @@ pub const Frame = struct {
     }
 };
 
-pub export fn writeBarrier(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) void {
+pub fn writeBarrier(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) callconv(.C) void {
     std.debug.assert(value.isBlock(blk));
     if (!value.isYoung(blk)) {
         if (value.isBlock(v_old)) {
@@ -150,20 +167,20 @@ pub export fn writeBarrier(blk: value.Value, i: usize, v_old: value.Value, v_new
     }
 }
 
-pub fn setField(blk: value.Value, i: usize, v: value.Value) void {
+pub fn setField(blk: value.Value, i: usize, v: value.Value) callconv(.C) void {
     const fld = value.fieldPtr(blk, i);
     writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Unordered), v);
     @fence(.Acquire);
     @atomicStore(value.Value, fld, v, .Release);
 }
-pub fn setFields(blk: value.Value, v: value.Value) void {
+pub fn setFields(blk: value.Value, v: value.Value) callconv(.C) void {
     std.debug.assert(value.isBlock(blk));
     for (0..value.size(blk)) |i| {
         setField(blk, i, v);
     }
 }
 
-pub export fn initialize(blk: value.Value, i: usize, v: value.Value) void {
+pub fn initialize(blk: value.Value, i: usize, v: value.Value) callconv(.C) void {
     const fld = value.fieldPtr(blk, i);
     std.debug.assert(value.isInt(@atomicLoad(value.Value, fld, .Unordered)));
     @atomicStore(value.Value, fld, v, .Unordered);
@@ -172,7 +189,7 @@ pub export fn initialize(blk: value.Value, i: usize, v: value.Value) void {
     }
 }
 
-pub export fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) bool {
+pub fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) callconv(.C) bool {
     const fld = value.fieldPtr(blk, i);
     if (domain.alone()) {
         if (@atomicLoad(value.Value, fld, .Unordered) == v_old) {
@@ -194,7 +211,7 @@ pub export fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: v
     }
 }
 
-pub export fn atomicLoad(blk: value.Value, i: usize) value.Value {
+pub fn atomicLoad(blk: value.Value, i: usize) callconv(.C) value.Value {
     const fld = value.fieldPtr(blk, i);
     if (domain.alone()) {
         return @atomicLoad(value.Value, fld, .Unordered);
@@ -204,7 +221,7 @@ pub export fn atomicLoad(blk: value.Value, i: usize) value.Value {
     }
 }
 
-pub export fn atomicExchange(blk: value.Value, i: usize, v: value.Value) value.Value {
+pub fn atomicExchange(blk: value.Value, i: usize, v: value.Value) callconv(.C) value.Value {
     const fld = value.fieldPtr(blk, i);
     var res: value.Value = undefined;
     if (domain.alone()) {
@@ -219,7 +236,7 @@ pub export fn atomicExchange(blk: value.Value, i: usize, v: value.Value) value.V
     return res;
 }
 
-pub export fn atomicFetchAdd(blk: value.Value, i: usize, incr: value.Value) value.Value {
+pub fn atomicFetchAdd(blk: value.Value, i: usize, incr: value.Value) callconv(.C) value.Value {
     const fld = value.fieldPtr(blk, i);
     var res: value.Value = undefined;
     if (domain.alone()) {
@@ -232,7 +249,7 @@ pub export fn atomicFetchAdd(blk: value.Value, i: usize, incr: value.Value) valu
     return res;
 }
 
-pub export fn allocShared(wsz: usize, tag: value.Tag, rsv: value.Reserved) value.Value {
+pub fn allocShared(wsz: usize, tag: value.Tag, rsv: value.Reserved) callconv(.C) value.Value {
     domain.checkState();
     const state = domain.state.?;
     if (shared_heap.tryAllocShared(state.shared_heap, wsz, tag, rsv, false)) |blk| {
@@ -292,7 +309,7 @@ pub const static = struct {
         }
     };
 
-    pub export fn create() void {
+    pub fn create() void {
         if (Block.pool == null) {
             if (@as(?*Block, @ptrCast(@alignCast(std.c.malloc(@sizeOf(Block)))))) |blk| {
                 Block.pool = blk;
@@ -304,7 +321,7 @@ pub const static = struct {
         }
     }
 
-    pub export fn destroy() void {
+    pub fn destroy() void {
         Block.mutex.lock();
         defer Block.mutex.unlock();
 

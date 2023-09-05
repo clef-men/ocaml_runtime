@@ -6,24 +6,38 @@ const domain = @import("domain.zig");
 const fail = @import("fail.zig");
 const final = @import("final.zig");
 
-// TODO
-pub extern fn processPendingSignalsExn() value.Value;
+comptime {
+    @export(setActionPending, .{ .name = "caml_signal_set_action_pending" });
+    @export(checkPendingActions, .{ .name = "caml_signal_check_pending_actions" });
+    @export(doPendingActionsExn, .{ .name = "caml_signal_do_pending_actions_exn" });
+    @export(processPendingActionsWithRootExn, .{ .name = "caml_signal_process_pending_actions_with_root_exn" });
+    @export(processPendingActionsWithRoot, .{ .name = "caml_signal_process_pending_actions_with_root" });
+    @export(processPendingActionsExn, .{ .name = "caml_signal_process_pending_actions_exn" });
+    @export(processPendingActions, .{ .name = "caml_signal_process_pending_actions" });
+}
 
 // TODO
-pub extern fn requestMajorSlice(global: bool) void;
-// TODO
-pub extern fn requestMinorGc() void;
+pub fn processPendingSignalsExn() value.Value {
+    return undefined;
+}
 
-pub export fn setActionPending(state: *domain.State) void {
+// TODO
+pub fn requestMajorSlice(global: bool) void {
+    _ = global;
+}
+// TODO
+pub fn requestMinorGc() void {}
+
+pub fn setActionPending(state: *domain.State) callconv(.C) void {
     state.action_pending = true;
     state.young_limit.store(std.math.maxInt(usize), .Release);
 }
-pub export fn checkPendingActions() bool {
+pub fn checkPendingActions() callconv(.C) bool {
     domain.checkState();
     const state = domain.state.?;
     return domain.checkGcInterrupt(state) or state.action_pending;
 }
-pub export fn doPendingActionsExn() value.Value {
+pub fn doPendingActionsExn() callconv(.C) value.Value {
     domain.state.?.action_pending = false;
     domain.handleGcInterrupt();
 
@@ -42,7 +56,7 @@ pub export fn doPendingActionsExn() value.Value {
         break :blk exn;
     };
 }
-pub export fn processPendingActionsWithRootExn(root: value.Value) value.Value {
+pub fn processPendingActionsWithRootExn(root: value.Value) callconv(.C) value.Value {
     if (checkPendingActions()) {
         const frame = memory.Frame.create();
         defer frame.destroy();
@@ -57,17 +71,17 @@ pub export fn processPendingActionsWithRootExn(root: value.Value) value.Value {
     }
     return root;
 }
-pub export fn processPendingActionsWithRoot(root: value.Value) value.Value {
+pub fn processPendingActionsWithRoot(root: value.Value) callconv(.C) value.Value {
     const exn = processPendingActionsWithRootExn(root);
     fail.raiseIfException(exn);
     return exn;
 }
-pub export fn processPendingActionsExn() value.Value {
+pub fn processPendingActionsExn() callconv(.C) value.Value {
     return processPendingActionsWithRootExn(value.unit);
 }
-pub export fn processPendingActions() void {
+pub fn processPendingActions() callconv(.C) void {
     _ = processPendingActionsWithRoot(value.unit);
 }
 
 // TODO
-pub extern fn terminateSignals() void;
+pub fn terminateSignals() void {}

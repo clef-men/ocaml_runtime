@@ -1,11 +1,21 @@
 const value = @import("value.zig");
 const domain = @import("domain.zig");
 
-// TODO
-pub extern fn darken(state: *domain.State, v: value.Value, ignored: ?*value.Value) void;
+comptime {
+    @export(auto_triggered_major_slice, .{ .name = "caml_auto_triggered_major_slice" });
+}
 
-pub export const auto_triggered_major_slice: isize =
+// TODO
+pub fn darken(state: *domain.State, v: value.Value, ignored: ?*value.Value) void {
+    _ = state;
+    _ = v;
+    _ = ignored;
+}
+
+pub const auto_triggered_major_slice: isize =
     -1;
 
 // TODO
-pub extern fn majorCollectionSlice(howmuch: isize) void;
+pub fn majorCollectionSlice(howmuch: isize) void {
+    _ = howmuch;
+}
