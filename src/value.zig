@@ -15,12 +15,10 @@ pub const Reserved =
 pub const Exception =
     isize;
 
-pub export const header_bytsize: usize =
-    @sizeOf(Header);
 pub export const header_wsize: usize =
-    header_bytsize / @sizeOf(usize);
+    @sizeOf(Header) / @sizeOf(usize);
 pub export const header_bitsize: usize =
-    header_bytsize * 8;
+    @sizeOf(Header) * 8;
 
 pub export const reserved_bitsize: usize =
     0;
