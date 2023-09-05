@@ -14,23 +14,23 @@ pub fn alloc(wsz: usize, tag: value.Tag) value.Value {
             return allocSmall0(tag);
         } else {
             domain.checkState();
-            const res = memory.allocSmall(wsz, tag, void, memory.allocSmallGc, {});
+            const blk = memory.allocSmall(wsz, tag, void, memory.allocSmallGc, {});
             if (tag < value.tag_no_scan) {
                 for (0..wsz) |i| {
-                    value.fieldPtr(res, i).* = value.unit;
+                    @atomicStore(value.Value, value.fieldPtr(blk, i), value.unit, .Unordered);
                 }
             }
-            return res;
+            return blk;
         }
     } else {
-        const res = memory.allocShared(wsz, tag, 0);
+        const blk = memory.allocShared(wsz, tag, 0);
         if (tag < value.tag_no_scan) {
             for (0..wsz) |i| {
-                value.fieldPtr(res, i).* = value.unit;
+                @atomicStore(value.Value, value.fieldPtr(blk, i), value.unit, .Unordered);
             }
         }
-        minor_gc.checkUrgentGc(res);
-        return res;
+        minor_gc.checkUrgentGc(blk);
+        return blk;
     }
 }
 
