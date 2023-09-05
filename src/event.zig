@@ -71,7 +71,6 @@ pub fn end(phase: Phase) void {
 }
 
 // TODO
-pub fn counter(cntr: Counter, val: usize) void {
+pub fn counter(cntr: Counter, _: usize) void {
     _ = cntr;
-    _ = val;
 }

@@ -25,16 +25,16 @@ const exception = struct {
 
 pub extern fn raiseException(state: *domain.State, val: value.Value) noreturn;
 
-pub export fn raise(val: value.Value) noreturn {
+pub export fn raise(v: value.Value) noreturn {
     domain.checkState();
 
     io.unlockException();
 
-    std.debug.assert(!value.isException(val));
+    std.debug.assert(!value.isException(v));
 
-    var val_ = signal.processPendingActionsWithRootExn(val);
-    if (value.isException(val_)) {
-        val_ = value.exception(val_);
+    var v_ = signal.processPendingActionsWithRootExn(v);
+    if (value.isException(v_)) {
+        v_ = value.exception(v_);
     }
 
     if (domain.state.?.c_stack) |c_stack| {
@@ -44,10 +44,10 @@ pub export fn raise(val: value.Value) noreturn {
             }
             domain.state.?.local_roots = local_roots.next;
         }
-        raiseException(domain.state.?, val_);
+        raiseException(domain.state.?, v_);
     } else {
         signal.terminateSignals();
-        printexc.fatalUncaughtException(val_);
+        printexc.fatalUncaughtException(v_);
     }
 }
 pub export fn raiseWithArgument(tag: value.Value, arg: value.Value) noreturn {
@@ -72,9 +72,9 @@ pub fn raiseWithString(tag: value.Value, msg: []const u8) noreturn {
 
     raiseWithArgument(tag, alloc.copyString(msg));
 }
-pub export fn raiseIfException(val: value.Value) void {
-    if (value.isException(val)) {
-        raise(value.exception(val));
+pub export fn raiseIfException(v: value.Value) void {
+    if (value.isException(v)) {
+        raise(value.exception(v));
     }
 }
 

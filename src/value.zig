@@ -56,23 +56,23 @@ pub export const size_mask: Header =
 pub export const size_max: usize =
     (1 << size_bitsize) - 1;
 
-pub export fn isInt(val: Value) bool {
-    return (val & 1) != 0;
+pub export fn isInt(v: Value) bool {
+    return (v & 1) != 0;
 }
-pub export fn isBlock(val: Value) bool {
-    return (val & 1) == 0;
+pub export fn isBlock(v: Value) bool {
+    return (v & 1) == 0;
 }
-pub export fn isYoung(val: Value) bool {
-    std.debug.assert(isBlock(val));
-    return @as(usize, @bitCast(val)) < domain.minor_heaps_end and domain.minor_heaps_start < @as(usize, @bitCast(val));
+pub export fn isYoung(v: Value) bool {
+    std.debug.assert(isBlock(v));
+    return @as(usize, @bitCast(v)) < domain.minor_heaps_end and domain.minor_heaps_start < @as(usize, @bitCast(v));
 }
 
 pub export fn ofInt(i: isize) Value {
     return @as(isize, @bitCast(@as(usize, @bitCast(i)) << 1)) + 1;
 }
-pub export fn toInt(val: Value) isize {
-    std.debug.assert(isInt(val));
-    return val >> 1;
+pub export fn toInt(v: Value) isize {
+    std.debug.assert(isInt(v));
+    return v >> 1;
 }
 
 pub export fn ofFields(flds: [*]Value) Value {
@@ -88,8 +88,8 @@ pub export fn fieldPtr(blk: Value, i: usize) *Value {
 pub export fn field(blk: Value, i: usize) Value {
     return @atomicLoad(Value, fieldPtr(blk, i), .Unordered);
 }
-pub export fn setField(blk: Value, i: usize, val: Value) void {
-    @atomicStore(Value, fieldPtr(blk, i), val, .Unordered);
+pub export fn setField(blk: Value, i: usize, v: Value) void {
+    @atomicStore(Value, fieldPtr(blk, i), v, .Unordered);
 }
 
 pub export fn bytes(blk: Value) [*]u8 {
@@ -152,14 +152,14 @@ pub export fn headerMake(sz: usize, tag: Tag, col: Color) Header {
     return headerMakeWithReserved(sz, tag, col, 0);
 }
 
-pub export fn makeException(val: Value) Value {
-    return val | 2;
+pub export fn makeException(v: Value) Value {
+    return v | 2;
 }
-pub export fn isException(val: Value) bool {
-    return val & 3 == 2;
+pub export fn isException(v: Value) bool {
+    return v & 3 == 2;
 }
-pub export fn exception(val: Value) Exception {
-    return val & ~@as(Value, 3);
+pub export fn exception(v: Value) Exception {
+    return v & ~@as(Value, 3);
 }
 
 pub export const unit =

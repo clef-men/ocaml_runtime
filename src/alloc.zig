@@ -39,27 +39,27 @@ pub export fn allocSharedCheckGc(wsz: usize, tag: value.Tag) value.Value {
     return memory.allocShared(wsz, tag, 0);
 }
 
-fn allocSmallAuxGc(state: *domain.State, wsz: usize, vals: [*]value.Value) void {
+fn allocSmallAuxGc(state: *domain.State, wsz: usize, vs: [*]value.Value) void {
     const frame = memory.Frame.create();
     defer frame.destroy();
 
-    const roots = memory.Roots.make(@ptrCast(vals + wsz), wsz);
+    const roots = memory.Roots.make(@ptrCast(vs + wsz), wsz);
     frame.add(&roots);
 
     for (0..wsz) |i| {
-        vals[wsz + i] = vals[i];
+        vs[wsz + i] = vs[i];
     }
     memory.allocSmallGc(state, wsz, {});
     for (0..wsz) |i| {
-        vals[i] = vals[wsz + i];
+        vs[i] = vs[wsz + i];
     }
 }
-fn allocSmallAux(comptime wsz: comptime_int, tag: value.Tag, vals: *[2 * wsz]value.Value) value.Value {
+fn allocSmallAux(comptime wsz: comptime_int, tag: value.Tag, vs: *[2 * wsz]value.Value) value.Value {
     domain.checkState();
     std.debug.assert(tag <= value.tag_max);
-    const blk = memory.allocSmall(wsz, tag, [*]value.Value, allocSmallAuxGc, vals);
+    const blk = memory.allocSmall(wsz, tag, [*]value.Value, allocSmallAuxGc, vs);
     for (0..wsz) |i| {
-        value.setField(blk, i, vals[i]);
+        value.setField(blk, i, vs[i]);
     }
     return blk;
 }
@@ -76,41 +76,41 @@ pub export fn allocSmall0(tag: value.Tag) value.Value {
     };
     return value.ofHeaderPtr(&static.atoms[tag]);
 }
-pub export fn allocSmall1(tag: value.Tag, val1: value.Value) value.Value {
-    var vals = [_]value.Value{val1} ++ [1]value.Value{value.unit} ** 1;
-    return allocSmallAux(1, tag, &vals);
+pub export fn allocSmall1(tag: value.Tag, v1: value.Value) value.Value {
+    var vs = [_]value.Value{v1} ++ [1]value.Value{value.unit} ** 1;
+    return allocSmallAux(1, tag, &vs);
 }
-pub export fn allocSmall2(tag: value.Tag, val1: value.Value, val2: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2 } ++ [1]value.Value{value.unit} ** 2;
-    return allocSmallAux(2, tag, &vals);
+pub export fn allocSmall2(tag: value.Tag, v1: value.Value, v2: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2 } ++ [1]value.Value{value.unit} ** 2;
+    return allocSmallAux(2, tag, &vs);
 }
-pub export fn allocSmall3(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3 } ++ [1]value.Value{value.unit} ** 3;
-    return allocSmallAux(3, tag, &vals);
+pub export fn allocSmall3(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3 } ++ [1]value.Value{value.unit} ** 3;
+    return allocSmallAux(3, tag, &vs);
 }
-pub export fn allocSmall4(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4 } ++ [1]value.Value{value.unit} ** 4;
-    return allocSmallAux(4, tag, &vals);
+pub export fn allocSmall4(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4 } ++ [1]value.Value{value.unit} ** 4;
+    return allocSmallAux(4, tag, &vs);
 }
-pub export fn allocSmall5(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value, val5: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4, val5 } ++ [1]value.Value{value.unit} ** 5;
-    return allocSmallAux(5, tag, &vals);
+pub export fn allocSmall5(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value, v5: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4, v5 } ++ [1]value.Value{value.unit} ** 5;
+    return allocSmallAux(5, tag, &vs);
 }
-pub export fn allocSmall6(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value, val5: value.Value, val6: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4, val5, val6 } ++ [1]value.Value{value.unit} ** 6;
-    return allocSmallAux(6, tag, &vals);
+pub export fn allocSmall6(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value, v5: value.Value, v6: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4, v5, v6 } ++ [1]value.Value{value.unit} ** 6;
+    return allocSmallAux(6, tag, &vs);
 }
-pub export fn allocSmall7(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value, val5: value.Value, val6: value.Value, val7: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4, val5, val6, val7 } ++ [1]value.Value{value.unit} ** 7;
-    return allocSmallAux(7, tag, &vals);
+pub export fn allocSmall7(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value, v5: value.Value, v6: value.Value, v7: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4, v5, v6, v7 } ++ [1]value.Value{value.unit} ** 7;
+    return allocSmallAux(7, tag, &vs);
 }
-pub export fn allocSmall8(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value, val5: value.Value, val6: value.Value, val7: value.Value, val8: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4, val5, val6, val7, val8 } ++ [1]value.Value{value.unit} ** 8;
-    return allocSmallAux(8, tag, &vals);
+pub export fn allocSmall8(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value, v5: value.Value, v6: value.Value, v7: value.Value, v8: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4, v5, v6, v7, v8 } ++ [1]value.Value{value.unit} ** 8;
+    return allocSmallAux(8, tag, &vs);
 }
-pub export fn allocSmall9(tag: value.Tag, val1: value.Value, val2: value.Value, val3: value.Value, val4: value.Value, val5: value.Value, val6: value.Value, val7: value.Value, val8: value.Value, val9: value.Value) value.Value {
-    var vals = [_]value.Value{ val1, val2, val3, val4, val5, val6, val7, val8, val9 } ++ [1]value.Value{value.unit} ** 9;
-    return allocSmallAux(9, tag, &vals);
+pub export fn allocSmall9(tag: value.Tag, v1: value.Value, v2: value.Value, v3: value.Value, v4: value.Value, v5: value.Value, v6: value.Value, v7: value.Value, v8: value.Value, v9: value.Value) value.Value {
+    var vs = [_]value.Value{ v1, v2, v3, v4, v5, v6, v7, v8, v9 } ++ [1]value.Value{value.unit} ** 9;
+    return allocSmallAux(9, tag, &vs);
 }
 pub export fn allocSmall(wsz: usize, tag: value.Tag) value.Value {
     std.debug.assert(0 < wsz);

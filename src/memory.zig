@@ -68,52 +68,52 @@ pub const Roots = struct {
 
     const Self = @This();
 
-    pub fn make1(val1: *const value.Value) Self {
+    pub fn make1(v1: *const value.Value) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 1,
             .num_item = 1,
-            .tables = [5][*]const value.Value{ @ptrCast(val1), undefined, undefined, undefined, undefined },
+            .tables = [5][*]const value.Value{ @ptrCast(v1), undefined, undefined, undefined, undefined },
         };
     }
-    pub fn make2(val1: *const value.Value, val2: *const value.Value) Self {
+    pub fn make2(v1: *const value.Value, v2: *const value.Value) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 2,
             .num_item = 1,
-            .tables = [5][*]const value.Value{ @ptrCast(val1), @ptrCast(val2), undefined, undefined, undefined },
+            .tables = [5][*]const value.Value{ @ptrCast(v1), @ptrCast(v2), undefined, undefined, undefined },
         };
     }
-    pub fn make3(val1: *const value.Value, val2: *const value.Value, val3: *const value.Value) Self {
+    pub fn make3(v1: *const value.Value, v2: *const value.Value, v3: *const value.Value) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 3,
             .num_item = 1,
-            .tables = [5][*]const value.Value{ @ptrCast(val1), @ptrCast(val2), @ptrCast(val3), undefined, undefined },
+            .tables = [5][*]const value.Value{ @ptrCast(v1), @ptrCast(v2), @ptrCast(v3), undefined, undefined },
         };
     }
-    pub fn make4(val1: *const value.Value, val2: *const value.Value, val3: *const value.Value, val4: *const value.Value) Self {
+    pub fn make4(v1: *const value.Value, v2: *const value.Value, v3: *const value.Value, v4: *const value.Value) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 4,
             .num_item = 1,
-            .tables = [5][*]const value.Value{ @ptrCast(val1), @ptrCast(val2), @ptrCast(val3), @ptrCast(val4), undefined },
+            .tables = [5][*]const value.Value{ @ptrCast(v1), @ptrCast(v2), @ptrCast(v3), @ptrCast(v4), undefined },
         };
     }
-    pub fn make5(val1: *const value.Value, val2: *const value.Value, val3: *const value.Value, val4: *const value.Value, val5: *const value.Value) Self {
+    pub fn make5(v1: *const value.Value, v2: *const value.Value, v3: *const value.Value, v4: *const value.Value, v5: *const value.Value) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 5,
             .num_item = 1,
-            .tables = [5][*]const value.Value{ @ptrCast(val1), @ptrCast(val2), @ptrCast(val3), @ptrCast(val4), @ptrCast(val5) },
+            .tables = [5][*]const value.Value{ @ptrCast(v1), @ptrCast(v2), @ptrCast(v3), @ptrCast(v4), @ptrCast(v5) },
         };
     }
-    pub fn make(vals: [*]const value.Value, sz: usize) Self {
+    pub fn make(vs: [*]const value.Value, sz: usize) Self {
         return .{
             .next = domain.state.?.local_roots,
             .num_table = 1,
             .num_item = sz,
-            .tables = [5][*]const value.Value{ vals, undefined, undefined, undefined, undefined },
+            .tables = [5][*]const value.Value{ vs, undefined, undefined, undefined, undefined },
         };
     }
 };
@@ -135,60 +135,60 @@ pub const Frame = struct {
     }
 };
 
-pub export fn writeBarrier(blk: value.Value, i: usize, old_val: value.Value, new_val: value.Value) void {
+pub export fn writeBarrier(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) void {
     std.debug.assert(value.isBlock(blk));
     if (!value.isYoung(blk)) {
-        if (value.isBlock(old_val)) {
-            if (value.isYoung(old_val)) {
+        if (value.isBlock(v_old)) {
+            if (value.isYoung(v_old)) {
                 return;
             }
-            major_gc.darken(domain.state.?, old_val, null);
+            major_gc.darken(domain.state.?, v_old, null);
         }
-        if (value.isBlock(new_val) and value.isYoung(new_val)) {
+        if (value.isBlock(v_new) and value.isYoung(v_new)) {
             domain.state.?.minor_tables.value_table.add(value.fieldPtr(blk, i));
         }
     }
 }
 
-pub fn setField(blk: value.Value, i: usize, val: value.Value) void {
+pub fn setField(blk: value.Value, i: usize, v: value.Value) void {
     const fld = value.fieldPtr(blk, i);
-    writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Unordered), val);
+    writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Unordered), v);
     @fence(.Acquire);
-    @atomicStore(value.Value, fld, val, .Release);
+    @atomicStore(value.Value, fld, v, .Release);
 }
-pub fn setFields(blk: value.Value, val: value.Value) void {
+pub fn setFields(blk: value.Value, v: value.Value) void {
     std.debug.assert(value.isBlock(blk));
     for (0..value.size(blk)) |i| {
-        setField(blk, i, val);
+        setField(blk, i, v);
     }
 }
 
-pub export fn initialize(blk: value.Value, i: usize, val: value.Value) void {
+pub export fn initialize(blk: value.Value, i: usize, v: value.Value) void {
     const fld = value.fieldPtr(blk, i);
     std.debug.assert(value.isInt(@atomicLoad(value.Value, fld, .Unordered)));
-    @atomicStore(value.Value, fld, val, .Unordered);
-    if (!value.isYoung(blk) and value.isBlock(val) and value.isYoung(val)) {
+    @atomicStore(value.Value, fld, v, .Unordered);
+    if (!value.isYoung(blk) and value.isBlock(v) and value.isYoung(v)) {
         domain.state.?.minor_tables.value_table.add(fld);
     }
 }
 
-pub export fn atomicCas(blk: value.Value, i: usize, old_val: value.Value, new_val: value.Value) bool {
+pub export fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) bool {
     const fld = value.fieldPtr(blk, i);
     if (domain.alone()) {
-        if (@atomicLoad(value.Value, fld, .Unordered) == old_val) {
-            @atomicStore(value.Value, fld, new_val, .Unordered);
-            writeBarrier(blk, i, old_val, new_val);
+        if (@atomicLoad(value.Value, fld, .Unordered) == v_old) {
+            @atomicStore(value.Value, fld, v_new, .Unordered);
+            writeBarrier(blk, i, v_old, v_new);
             return true;
         } else {
             return false;
         }
     } else {
-        const res = @cmpxchgStrong(value.Value, fld, old_val, new_val, .SeqCst, .SeqCst);
+        const res = @cmpxchgStrong(value.Value, fld, v_old, v_new, .SeqCst, .SeqCst);
         @fence(.Release);
         if (res) |_| {
             return false;
         } else {
-            writeBarrier(blk, i, old_val, new_val);
+            writeBarrier(blk, i, v_old, v_new);
             return true;
         }
     }
@@ -204,18 +204,18 @@ pub export fn atomicLoad(blk: value.Value, i: usize) value.Value {
     }
 }
 
-pub export fn atomicExchange(blk: value.Value, i: usize, val: value.Value) value.Value {
+pub export fn atomicExchange(blk: value.Value, i: usize, v: value.Value) value.Value {
     const fld = value.fieldPtr(blk, i);
     var res: value.Value = undefined;
     if (domain.alone()) {
         res = @atomicLoad(value.Value, fld, .Unordered);
-        @atomicStore(value.Value, fld, val, .Unordered);
+        @atomicStore(value.Value, fld, v, .Unordered);
     } else {
         @fence(.Acquire);
-        res = @atomicRmw(value.Value, fld, .Xchg, val, .SeqCst);
+        res = @atomicRmw(value.Value, fld, .Xchg, v, .SeqCst);
         @fence(.Release);
     }
-    writeBarrier(blk, i, res, val);
+    writeBarrier(blk, i, res, v);
     return res;
 }
 

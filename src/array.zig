@@ -43,12 +43,12 @@ pub export fn get(arr: value.Value, idx: value.Value) value.Value {
     return value.field(arr, @intCast(idx_));
 }
 
-pub export fn set(arr: value.Value, idx: value.Value, val: value.Value) value.Value {
+pub export fn set(arr: value.Value, idx: value.Value, v: value.Value) value.Value {
     const idx_ = value.toInt(idx);
     if (idx_ < 0 or value.size(arr) <= idx_) {
         boundError();
     }
-    memory.setField(arr, @intCast(idx_), val);
+    memory.setField(arr, @intCast(idx_), v);
     return value.unit;
 }
 
@@ -56,8 +56,8 @@ pub export fn unsafe_get(arr: value.Value, idx: value.Value) value.Value {
     return value.field(arr, @intCast(value.toInt(idx)));
 }
 
-pub export fn unsafe_set(arr: value.Value, idx: value.Value, val: value.Value) value.Value {
-    memory.setField(arr, @intCast(value.toInt(idx)), val);
+pub export fn unsafe_set(arr: value.Value, idx: value.Value, v: value.Value) value.Value {
+    memory.setField(arr, @intCast(value.toInt(idx)), v);
     return value.unit;
 }
 
