@@ -151,7 +151,7 @@ pub fn allocString(sz: usize) callconv(.C) value.Value {
     };
     value.setField(blk, wsz - 1, 0);
     const i = wsz * @sizeOf(usize) - 1;
-    value.bytePtr(blk, i).* = @intCast(i - sz);
+    value.setByte(blk, i, @intCast(i - sz));
     return blk;
 }
 pub fn copyString(str: []const u8) value.Value {
