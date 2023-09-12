@@ -57,7 +57,7 @@ pub threadlocal var state: ?*State =
     null;
 
 const Interruptor = struct {
-    interrupt_word: std.atomic.Atomic(usize),
+    interrupt_word: *std.atomic.Atomic(usize),
     mutex: std.Thread.Mutex,
     condition: std.Thread.Condition,
 
