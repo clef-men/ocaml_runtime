@@ -171,7 +171,7 @@ pub fn writeBarrier(blk: value.Value, i: usize, v_old: value.Value, v_new: value
 
 pub fn setField(blk: value.Value, i: usize, v: value.Value) callconv(.C) void {
     const fld = value.fieldPtr(blk, i);
-    writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Unordered), v);
+    writeBarrier(blk, i, @atomicLoad(value.Value, fld, .Monotonic), v);
     @fence(.Acquire);
     @atomicStore(value.Value, fld, v, .Release);
 }
@@ -184,8 +184,8 @@ pub fn setFields(blk: value.Value, v: value.Value) callconv(.C) void {
 
 pub fn initialize(blk: value.Value, i: usize, v: value.Value) callconv(.C) void {
     const fld = value.fieldPtr(blk, i);
-    std.debug.assert(value.isInt(@atomicLoad(value.Value, fld, .Unordered)));
-    @atomicStore(value.Value, fld, v, .Unordered);
+    std.debug.assert(value.isInt(@atomicLoad(value.Value, fld, .Monotonic)));
+    @atomicStore(value.Value, fld, v, .Monotonic);
     if (!value.isYoung(blk) and value.isBlock(v) and value.isYoung(v)) {
         domain.state.?.minor_tables.value_table.add(fld);
     }
@@ -194,8 +194,8 @@ pub fn initialize(blk: value.Value, i: usize, v: value.Value) callconv(.C) void 
 pub fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Value) callconv(.C) bool {
     const fld = value.fieldPtr(blk, i);
     if (domain.alone()) {
-        if (@atomicLoad(value.Value, fld, .Unordered) == v_old) {
-            @atomicStore(value.Value, fld, v_new, .Unordered);
+        if (@atomicLoad(value.Value, fld, .Monotonic) == v_old) {
+            @atomicStore(value.Value, fld, v_new, .Monotonic);
             writeBarrier(blk, i, v_old, v_new);
             return true;
         } else {
@@ -216,7 +216,7 @@ pub fn atomicCas(blk: value.Value, i: usize, v_old: value.Value, v_new: value.Va
 pub fn atomicLoad(blk: value.Value, i: usize) callconv(.C) value.Value {
     const fld = value.fieldPtr(blk, i);
     if (domain.alone()) {
-        return @atomicLoad(value.Value, fld, .Unordered);
+        return @atomicLoad(value.Value, fld, .Monotonic);
     } else {
         @fence(.Acquire);
         return @atomicLoad(value.Value, fld, .SeqCst);
@@ -227,8 +227,8 @@ pub fn atomicExchange(blk: value.Value, i: usize, v: value.Value) callconv(.C) v
     const fld = value.fieldPtr(blk, i);
     var res: value.Value = undefined;
     if (domain.alone()) {
-        res = @atomicLoad(value.Value, fld, .Unordered);
-        @atomicStore(value.Value, fld, v, .Unordered);
+        res = @atomicLoad(value.Value, fld, .Monotonic);
+        @atomicStore(value.Value, fld, v, .Monotonic);
     } else {
         @fence(.Acquire);
         res = @atomicRmw(value.Value, fld, .Xchg, v, .SeqCst);
@@ -242,8 +242,8 @@ pub fn atomicFetchAdd(blk: value.Value, i: usize, incr: value.Value) callconv(.C
     const fld = value.fieldPtr(blk, i);
     var res: value.Value = undefined;
     if (domain.alone()) {
-        res = @atomicLoad(value.Value, fld, .Unordered);
-        @atomicStore(value.Value, fld, value.ofInt(value.toInt(res) + value.toInt(incr)), .Unordered);
+        res = @atomicLoad(value.Value, fld, .Monotonic);
+        @atomicStore(value.Value, fld, value.ofInt(value.toInt(res) + value.toInt(incr)), .Monotonic);
     } else {
         res = @atomicRmw(value.Value, fld, .Add, value.toInt(incr) * 2, .SeqCst);
         @fence(.Release);

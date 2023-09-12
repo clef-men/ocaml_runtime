@@ -155,10 +155,10 @@ pub fn fieldPtr(blk: Value, i: usize) callconv(.C) *Value {
     return @ptrCast(fields(blk) + i);
 }
 pub fn field(blk: Value, i: usize) callconv(.C) Value {
-    return @atomicLoad(Value, fieldPtr(blk, i), .Unordered);
+    return @atomicLoad(Value, fieldPtr(blk, i), .Monotonic);
 }
 pub fn setField(blk: Value, i: usize, v: Value) callconv(.C) void {
-    @atomicStore(Value, fieldPtr(blk, i), v, .Unordered);
+    @atomicStore(Value, fieldPtr(blk, i), v, .Monotonic);
 }
 
 pub fn bytes(blk: Value) callconv(.C) [*]u8 {
@@ -168,10 +168,10 @@ pub fn bytePtr(blk: Value, i: usize) callconv(.C) *u8 {
     return @ptrCast(bytes(blk) + i);
 }
 pub fn byte(blk: Value, i: usize) callconv(.C) u8 {
-    return @atomicLoad(u8, bytePtr(blk, i), .Unordered);
+    return @atomicLoad(u8, bytePtr(blk, i), .Monotonic);
 }
 pub fn setByte(blk: Value, i: usize, byt: u8) callconv(.C) void {
-    @atomicStore(u8, bytePtr(blk, i), byt, .Unordered);
+    @atomicStore(u8, bytePtr(blk, i), byt, .Monotonic);
 }
 
 pub fn ofHeaderPtr(hdr: *Header) callconv(.C) Value {
@@ -182,7 +182,7 @@ pub fn headerPtr(blk: Value) callconv(.C) *Header {
     return @ptrCast(@as([*]Header, @ptrFromInt(@as(usize, @bitCast(blk)))) - 1);
 }
 pub fn header(blk: Value) callconv(.C) Header {
-    return @atomicLoad(Header, headerPtr(blk), .Unordered);
+    return @atomicLoad(Header, headerPtr(blk), .Monotonic);
 }
 
 pub fn headerTag(hdr: Header) callconv(.C) Tag {

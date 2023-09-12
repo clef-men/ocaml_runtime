@@ -79,13 +79,13 @@ pub fn allocPoint() callconv(.C) void {
 pub var verbose_gc =
     std.atomic.Atomic(usize).init(0);
 pub fn gcLog(msg: []const u8) void {
-    if (verbose_gc.load(.Unordered) & 0x800 != 0) {
+    if (verbose_gc.load(.Monotonic) & 0x800 != 0) {
         const id: isize = if (domain.state) |state| @intCast(state.id) else -1;
         std.io.getStdErr().writer().print("[{d:02}] {s}\n", .{ id, msg }) catch unreachable;
     }
 }
 pub fn gcMessage(lvl: usize, msg: []const u8) void {
-    if (verbose_gc.load(.Unordered) & lvl != 0) {
+    if (verbose_gc.load(.Monotonic) & lvl != 0) {
         std.io.getStdErr().writeAll(msg) catch unreachable;
     }
 }

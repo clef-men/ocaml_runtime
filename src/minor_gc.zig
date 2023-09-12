@@ -196,7 +196,7 @@ fn emptyMinorHeapPromote(state: *domain.State, num_participating: usize, partici
 
 fn doOpportunisticMajorSlice(_: *domain.State, _: ?*anyopaque) void {
     if (major_gc.opportunisticMajorWorkAvailable()) {
-        const log_events = misc.verbose_gc.load(.Unordered) & 0x40;
+        const log_events = misc.verbose_gc.load(.Monotonic) & 0x40;
         if (log_events != 0) {
             event.begin(.major_mark_opportunistic);
         }

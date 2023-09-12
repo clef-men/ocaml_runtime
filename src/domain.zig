@@ -145,7 +145,7 @@ pub fn alone() callconv(.C) bool {
 
 pub fn checkGcInterrupt(state_: *State) callconv(.C) bool {
     misc.allocPoint();
-    const young_limit = state_.young_limit.load(.Unordered);
+    const young_limit = state_.young_limit.load(.Monotonic);
     if (@intFromPtr(state_.young_ptr) < young_limit) {
         @fence(.Acquire);
         return true;
@@ -262,11 +262,11 @@ fn resetYoungLimit(state_: *State) void {
     std.debug.assert(@intFromPtr(state_.young_trigger) < @intFromPtr(state_.young_ptr));
     _ = state_.young_limit.swap(@intFromPtr(state_.young_trigger), .SeqCst);
     const internal_ = &all_domains[state_.id];
-    if (internal_.interruptor.interrupt_pending.load(.Unordered) or
+    if (internal_.interruptor.interrupt_pending.load(.Monotonic) or
         state_.requested_minor_gc or
         state_.requested_major_slice or
         state_.major_slice_epoch < minor_gc.major_slice_epoch.load(.SeqCst) or
-        state_.requested_external_interrupt.load(.Unordered) or
+        state_.requested_external_interrupt.load(.Monotonic) or
         state_.action_pending)
     {
         state_.young_limit.store(std.math.maxInt(usize), .Release);
