@@ -27,6 +27,8 @@ comptime {
     @export(atomicExchange, .{ .name = "caml_memory_atomic_exchange" });
     @export(atomicFetchAdd, .{ .name = "caml_memory_atomic_fetch_add" });
     @export(allocShared, .{ .name = "caml_memory_alloc_shared" });
+    @export(registerGenerationalGlobalRoot, .{ .name = "caml_memory_register_generational_global_root" });
+    @export(modifyGenerationalGlobalRoot, .{ .name = "caml_memory_modify_generational_global_root" });
 }
 
 pub fn clear(res: value.Value, wsz: usize) callconv(.C) void {
@@ -269,6 +271,16 @@ pub fn allocShared(wsz: usize, tag: value.Tag, rsv: value.Reserved) callconv(.C)
     }
 }
 
+// TODO
+pub fn registerGenerationalGlobalRoot(root: *value.Value) callconv(.C) void {
+    _ = root;
+}
+// TODO
+pub fn modifyGenerationalGlobalRoot(root: *value.Value, val: value.Value) callconv(.C) void {
+    _ = root;
+    _ = val;
+}
+
 pub const static = struct {
     const Block = struct {
         const Self = @This();
@@ -284,7 +296,7 @@ pub const static = struct {
 
         pub fn get(data: anytype) *Self {
             _ = @typeInfo(@TypeOf(data)).Pointer;
-            return @ptrCast(@as([*]Self, @ptrCast(data)) - 1);
+            return @ptrCast(@as([*]Self, @ptrCast(@alignCast(data))) - 1);
         }
 
         pub fn dataAs(self: *Self, comptime T: type) [*]T {
@@ -311,13 +323,10 @@ pub const static = struct {
 
     pub fn create() void {
         if (Block.pool == null) {
-            if (@as(?*Block, @ptrCast(@alignCast(std.c.malloc(@sizeOf(Block)))))) |blk| {
-                Block.pool = blk;
-                Block.pool.?.next = blk;
-                Block.pool.?.prev = blk;
-            } else {
-                misc.fatalError("Fatal error: out of memory.\n");
-            }
+            const blk = @as(*Block, @ptrCast(@alignCast(std.c.malloc(@sizeOf(Block)) orelse misc.fatalError("Fatal error: out of memory.\n"))));
+            Block.pool = blk;
+            Block.pool.?.next = blk;
+            Block.pool.?.prev = blk;
         }
     }
 
@@ -338,12 +347,9 @@ pub const static = struct {
 
     pub fn allocNoexc(comptime T: type, sz: usize) ?[*]T {
         if (Block.pool) |_| {
-            if (@as(?*Block, @ptrCast(@alignCast(std.c.malloc(@sizeOf(Block) + sz * @sizeOf(T)))))) |blk| {
-                blk.link();
-                return blk.dataAs(T);
-            } else {
-                return null;
-            }
+            const blk = @as(*Block, @ptrCast(@alignCast(std.c.malloc(@sizeOf(Block) + sz * @sizeOf(T)) orelse return null)));
+            blk.link();
+            return blk.dataAs(T);
         } else {
             return @ptrCast(@alignCast(std.c.malloc(sz * @sizeOf(T))));
         }
@@ -351,45 +357,80 @@ pub const static = struct {
     pub fn alloc1Noexc(comptime T: type) ?*T {
         return allocNoexc(T, 1);
     }
+    pub fn alloc(comptime T: type, sz: usize) ?[*]T {
+        const res = allocNoexc(T, sz);
+        if (res == null and sz != 0) {
+            fail.raiseOutOfMemory();
+        }
+        return res;
+    }
+    pub fn alloc1(comptime T: type) ?*T {
+        return alloc(T, 1);
+    }
 
     pub fn free(data: anytype) void {
         if (Block.pool) |_| {
-            if (data) |data_| {
-                const blk = Block.get(data_);
-                blk.unlink();
-                std.c.free(blk);
-            } else {
-                return;
-            }
+            const blk = Block.get(data);
+            blk.unlink();
+            std.c.free(blk);
         } else {
             std.c.free(@ptrCast(data));
         }
     }
 
     pub fn resizeNoexc(comptime T: type, data: ?[*]T, sz: usize) ?[*]T {
-        if (data) |data_| {
-            if (Block.pool) |_| {
-                const blk = Block.get(data_);
-                blk.unlink();
-                if (@as(?*Block, @ptrCast(@alignCast(std.c.realloc(blk, @sizeOf(Block) + sz * @sizeOf(T)))))) |new_blk| {
-                    new_blk.link();
-                    return new_blk.dataAs(T);
-                } else {
-                    blk.link();
-                    return null;
-                }
-            } else {
-                return @ptrCast(@alignCast(std.c.realloc(@ptrCast(data), sz)));
-            }
+        const data_ = data orelse return allocNoexc(T, sz);
+        if (Block.pool) |_| {
+            const blk = Block.get(data_);
+            blk.unlink();
+            const new_blk = @as(*Block, @ptrCast(@alignCast(std.c.realloc(blk, @sizeOf(Block) + sz * @sizeOf(T)) orelse {
+                blk.link();
+                return null;
+            })));
+            new_blk.link();
+            return new_blk.dataAs(T);
         } else {
-            return allocNoexc(T, sz);
+            return @ptrCast(@alignCast(std.c.realloc(@ptrCast(data), sz)));
         }
     }
     pub fn resize(comptime T: type, data: ?[*]T, sz: usize) [*]T {
-        if (resizeNoexc(T, data, sz)) |res| {
-            return res;
-        } else {
-            fail.raiseOutOfMemory();
-        }
+        return resizeNoexc(T, data, sz) orelse fail.raiseOutOfMemory();
     }
+
+    pub fn stringDupNoexc(str: []const u8) ?[]const u8 {
+        const res = allocNoexc(u8, str.len) orelse return null;
+        @memcpy(res, str);
+        return res[0..str.len];
+    }
+    pub fn stringDup(str: []const u8) []const u8 {
+        return stringDupNoexc(str) orelse fail.raiseOutOfMemory();
+    }
+
+    const Allocator = struct {
+        fn header(ptr: [*]u8) *[*]u8 {
+            return @as(*[*]u8, @ptrFromInt(@intFromPtr(ptr) - @sizeOf(usize)));
+        }
+        fn alloc_(_: *anyopaque, sz: usize, log2_alignment: u8, _: usize) ?[*]u8 {
+            const alignment = @as(usize, 1) << @as(std.math.Log2Int(usize), @intCast(log2_alignment));
+            const unaligned_ptr = alloc(u8, sz + alignment - 1 + @sizeOf(usize)) orelse return null;
+            const aligned_ptr = @as([*]u8, @ptrFromInt(std.mem.alignForward(usize, @intFromPtr(unaligned_ptr) + @sizeOf(usize), alignment)));
+            header(aligned_ptr).* = unaligned_ptr;
+            return aligned_ptr;
+        }
+        fn resize_(_: *anyopaque, buf: []u8, _: u8, sz: usize, _: usize) bool {
+            return sz <= buf.len;
+        }
+        fn free_(_: *anyopaque, buf: []u8, _: u8, _: usize) void {
+            free(header(buf.ptr).*);
+        }
+    };
+    const allocator_vtable = std.mem.Allocator.VTable{
+        .alloc = Allocator.alloc_,
+        .resize = Allocator.resize_,
+        .free = Allocator.free_,
+    };
+    pub const allocator = std.mem.Allocator{
+        .ptr = undefined,
+        .vtable = &allocator_vtable,
+    };
 };

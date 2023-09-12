@@ -26,6 +26,9 @@ comptime {
     @export(isYoung, .{ .name = "caml_value_is_young" });
     @export(ofInt, .{ .name = "caml_value_of_int" });
     @export(toInt, .{ .name = "caml_value_to_int" });
+    @export(ofUint, .{ .name = "caml_value_of_uint" });
+    @export(toUint, .{ .name = "caml_value_to_uint" });
+    @export(toU8, .{ .name = "caml_value_to_u8" });
     @export(ofFields, .{ .name = "caml_value_of_fields" });
     @export(fields, .{ .name = "caml_value_fields" });
     @export(fieldPtr, .{ .name = "caml_value_field_ptr" });
@@ -51,7 +54,12 @@ comptime {
     @export(makeException, .{ .name = "caml_value_make_exception" });
     @export(isException, .{ .name = "caml_value_is_exception" });
     @export(exception, .{ .name = "caml_value_exception" });
+    @export(stringSize, .{ .name = "caml_value_string_size" });
+    @export(cstring, .{ .name = "caml_value_cstring" });
     @export(unit, .{ .name = "caml_value_unit" });
+    @export(false_, .{ .name = "caml_value_false" });
+    @export(true_, .{ .name = "caml_value_true" });
+    @export(not, .{ .name = "caml_value_not" });
 }
 
 pub const Value =
@@ -126,6 +134,15 @@ pub fn toInt(v: Value) callconv(.C) isize {
     std.debug.assert(isInt(v));
     return v >> 1;
 }
+pub fn ofUint(i: usize) callconv(.C) Value {
+    return ofInt(@intCast(i));
+}
+pub fn toUint(v: Value) callconv(.C) usize {
+    return @intCast(toInt(v));
+}
+pub fn toU8(v: Value) callconv(.C) u8 {
+    return @intCast(toInt(v));
+}
 
 pub fn ofFields(flds: [*]Value) callconv(.C) Value {
     return @bitCast(@intFromPtr(flds));
@@ -196,12 +213,12 @@ pub fn headerOfReserved(rsv: Reserved) callconv(.C) Header {
     return if (reserved_bitsize == 0) 0 else @as(Header, rsv) << reserved_shift;
 }
 
-pub fn headerMakeWithReserved(sz: usize, tag: Tag, col: Color, rsv: Reserved) callconv(.C) Header {
-    std.debug.assert(sz <= size_max);
-    return headerOfReserved(rsv) + (@as(Header, sz) << size_shift) + col + tag;
+pub fn headerMakeWithReserved(wsz: usize, tag: Tag, col: Color, rsv: Reserved) callconv(.C) Header {
+    std.debug.assert(wsz <= size_max);
+    return headerOfReserved(rsv) + (@as(Header, wsz) << size_shift) + col + tag;
 }
-pub fn headerMake(sz: usize, tag: Tag, col: Color) callconv(.C) Header {
-    return headerMakeWithReserved(sz, tag, col, 0);
+pub fn headerMake(wsz: usize, tag: Tag, col: Color) callconv(.C) Header {
+    return headerMakeWithReserved(wsz, tag, col, 0);
 }
 
 pub fn makeException(v: Value) callconv(.C) Value {
@@ -214,5 +231,26 @@ pub fn exception(v: Value) callconv(.C) Exception {
     return v & ~@as(Value, 3);
 }
 
+pub fn stringSize(blk: Value) callconv(.C) usize {
+    const tmp = size(blk) * @sizeOf(usize) - 1;
+    const sz = tmp - byte(blk, tmp);
+    std.debug.assert(byte(blk, sz) == 0);
+    return sz;
+}
+pub fn string(blk: Value) []const u8 {
+    return bytes(blk)[0..stringSize(blk)];
+}
+pub fn cstring(blk: Value) callconv(.C) [*:0]const u8 {
+    return @ptrCast(bytes(blk));
+}
+
 pub const unit =
     ofInt(0);
+
+pub const false_ =
+    ofInt(@intFromBool(false));
+pub const true_ =
+    ofInt(@intFromBool(true));
+pub fn not(b: Value) callconv(.C) Value {
+    return false_ + true_ - b;
+}

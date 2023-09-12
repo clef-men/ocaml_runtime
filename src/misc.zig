@@ -76,9 +76,9 @@ pub fn allocPoint() callconv(.C) void {
     std.debug.assert(noalloc_level == 0);
 }
 
-pub const verbose_gc =
+pub var verbose_gc =
     std.atomic.Atomic(usize).init(0);
-pub fn gcLog(comptime msg: []const u8) void {
+pub fn gcLog(msg: []const u8) void {
     if (verbose_gc.load(.Unordered) & 0x800 != 0) {
         const id: isize = if (domain.state) |state| @intCast(state.id) else -1;
         std.io.getStdErr().writer().print("[{d:02}] {s}\n", .{ id, msg }) catch unreachable;

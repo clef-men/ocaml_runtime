@@ -5,6 +5,7 @@ const memory = @import("memory.zig");
 const alloc = @import("alloc.zig");
 const domain = @import("domain.zig");
 const signal = @import("signal.zig");
+const callback = @import("callback.zig");
 const io = @import("io.zig");
 const printexc = @import("printexc.zig");
 
@@ -13,6 +14,7 @@ comptime {
     @export(raiseWithArgument, .{ .name = "caml_raise_with_argument" });
     @export(raiseIfException, .{ .name = "caml_raise_if_exception" });
     @export(raiseOutOfMemory, .{ .name = "caml_raise_out_of_memory" });
+    @export(boundError, .{ .name = "caml_bound_error" });
 }
 
 const exception = struct {
@@ -91,4 +93,25 @@ pub fn invalidArgument(msg: []const u8) noreturn {
 
 pub fn raiseOutOfMemory() callconv(.C) noreturn {
     raise(exception.out_of_memory);
+}
+
+fn boundExn() value.Value {
+    const static = struct {
+        var exn =
+            std.atomic.Atomic(?*const value.Value).init(null);
+    };
+    if (static.exn.load(.Acquire)) |exn| {
+        return exn.*;
+    } else {
+        if (callback.named_value.get("Pervasives.bound_error")) |exn| {
+            static.exn.store(exn, .Release);
+            return exn.*;
+        } else {
+            std.io.getStdErr().writeAll("Fatal error: exception Invalid_argument(\"index out of bounds\")\n") catch unreachable;
+            std.os.exit(2);
+        }
+    }
+}
+pub fn boundError() callconv(.C) noreturn {
+    raise(boundExn());
 }

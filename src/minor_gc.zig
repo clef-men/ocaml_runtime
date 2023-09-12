@@ -1,9 +1,14 @@
+const builtin = @import("builtin");
 const std = @import("std");
 
+const config = @import("config.zig");
 const value = @import("value.zig");
 const memory = @import("memory.zig");
 const domain = @import("domain.zig");
+const major_gc = @import("major_gc.zig");
+const gc_stats = @import("gc_stats.zig");
 const fail = @import("fail.zig");
+const final = @import("final.zig");
 const signal = @import("signal.zig");
 const event = @import("event.zig");
 const misc = @import("misc.zig");
@@ -11,7 +16,9 @@ const misc = @import("misc.zig");
 comptime {
     @export(num_collection, .{ .name = "caml_minor_num_collection" });
     @export(major_slice_epoch, .{ .name = "caml_minor_slice_epoch" });
+    @export(tryStwEmptyMinorHeapOnAllDomains, .{ .name = "caml_try_stw_empty_minor_heap_on_all_domains" });
     @export(allocSmallDispatch, .{ .name = "caml_minor_alloc_small_dispatch" });
+    @export(collect, .{ .name = "caml_minor_collect" });
     @export(checkUrgentGc, .{ .name = "caml_minor_check_urgence_gc" });
 }
 
@@ -31,7 +38,9 @@ pub fn Table(comptime T: type) type {
             self.size = sz;
             self.reserved = rsv;
             if (memory.static.allocNoexc(T, sz + rsv)) |base| {
-                memory.static.free(self.base);
+                if (self.base) |base_| {
+                    memory.static.free(base_);
+                }
                 self.base = base;
                 self.end = base + sz + rsv;
                 self.threshold = base + sz;
@@ -89,7 +98,9 @@ pub fn Table(comptime T: type) type {
         }
 
         pub fn reset(self: *Self) void {
-            memory.static.free(self.base);
+            if (self.base) |base| {
+                memory.static.free(base);
+            }
             self.init();
         }
 
@@ -165,8 +176,107 @@ pub var num_collection =
 pub var major_slice_epoch =
     std.atomic.Atomic(usize).init(0);
 
+var domains_finished_minor_gc =
+    std.atomic.Atomic(usize).init(0);
+
+var cycles_started =
+    std.atomic.Atomic(usize).init(0);
+
 // TODO
-pub fn emptyMinorHeapsOnce() void {}
+fn emptyMinorHeapDomainClear(state: *domain.State) void {
+    _ = state;
+}
+
+// TODO
+fn emptyMinorHeapPromote(state: *domain.State, num_participating: usize, participating: [*]*domain.State) void {
+    _ = state;
+    _ = num_participating;
+    _ = participating;
+}
+
+fn doOpportunisticMajorSlice(_: *domain.State, _: ?*anyopaque) void {
+    if (major_gc.opportunisticMajorWorkAvailable()) {
+        const log_events = misc.verbose_gc.load(.Unordered) & 0x40;
+        if (log_events != 0) {
+            event.begin(.major_mark_opportunistic);
+        }
+        major_gc.opportunisticMajorCollectionSlice(config.min_major_slice_work);
+        if (log_events != 0) {
+            event.end(.major_mark_opportunistic);
+        }
+    }
+}
+
+fn emptyMinorHeapSetup(_: *domain.State) void {
+    domains_finished_minor_gc.store(0, .Release);
+    _ = num_collection.fetchAdd(1, .SeqCst);
+}
+
+fn stwEmptyMinorHeapNoMajorSlice(state: *domain.State, _: *anyopaque, num_participating: usize, participating: [*]*domain.State) void {
+    const young_ptr = if (builtin.mode == .Debug) state.young_ptr else undefined;
+    std.debug.assert(domain.inStw());
+
+    if (participating[0] == domain.state.?) {
+        _ = cycles_started.fetchAdd(1, .SeqCst);
+    }
+
+    misc.gcLog("running stw empty_minor_heap_promote");
+    emptyMinorHeapPromote(state, num_participating, participating);
+
+    gc_stats.collectSample(state);
+
+    if (1 < num_participating) {
+        event.begin(.minor_leave_barrier);
+        defer event.end(.minor_leave_barrier);
+
+        while (true) {
+            if (domains_finished_minor_gc.load(.Acquire) == num_participating) {
+                break;
+            }
+            doOpportunisticMajorSlice(state, null);
+            std.atomic.spinLoopHint();
+        }
+    }
+
+    {
+        event.begin(.minor_finalizers_admin);
+        defer event.end(.minor_finalizers_admin);
+
+        misc.gcLog("running finalizer data structure book-keeping");
+        final.updateLastMinor(state);
+    }
+
+    {
+        event.begin(.minor_clear);
+        defer event.end(.minor_clear);
+
+        misc.gcLog("running stw empty_minor_heap_domain_clear");
+        emptyMinorHeapDomainClear(state);
+        if (builtin.mode == .Debug) {
+            var ptr = young_ptr;
+            while (ptr != state.young_end) : (ptr += 1) {
+                ptr[0] = misc.debug.free_minor;
+            }
+        }
+    }
+
+    misc.gcLog("finished stw empty_minor_heap");
+}
+
+fn tryStwEmptyMinorHeapOnAllDomains() callconv(.C) bool {
+    std.debug.assert(!domain.inStw());
+    misc.gcLog("requesting stw empty_minor_heap");
+    return domain.tryRunOnAllDomainsWithSpinWork(true, &stwEmptyMinorHeapNoMajorSlice, null, &emptyMinorHeapSetup, &doOpportunisticMajorSlice, null);
+}
+
+pub fn emptyMinorHeapsOnce() void {
+    const saved_cycle = cycles_started.load(.SeqCst);
+    std.debug.assert(!domain.inStw());
+    _ = tryStwEmptyMinorHeapOnAllDomains();
+    while (saved_cycle == cycles_started.load(.SeqCst)) {
+        _ = tryStwEmptyMinorHeapOnAllDomains();
+    }
+}
 
 pub fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory.AllocSmallFlags) callconv(.C) void {
     const wsz_ = wsz + value.header_wsize;
@@ -192,6 +302,11 @@ pub fn allocSmallDispatch(state: *domain.State, wsz: usize, flags: memory.AllocS
     state.young_ptr -= wsz_;
 }
 
+pub fn collect() callconv(.C) void {
+    signal.requestMinorGc();
+    domain.handleGcInterrupt();
+}
+
 pub fn checkUrgentGc(root: value.Value) callconv(.C) void {
     if (domain.checkGcInterrupt(domain.state.?)) {
         const frame = memory.Frame.create();
@@ -203,6 +318,3 @@ pub fn checkUrgentGc(root: value.Value) callconv(.C) void {
         domain.handleGcInterrupt();
     }
 }
-
-// TODO
-pub fn collect() void {}

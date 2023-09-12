@@ -35,9 +35,12 @@ pub const State = struct {
     young_start: [*]value.Value align(8),
     young_end: [*]value.Value align(8),
     young_trigger: [*]value.Value align(8),
+    current_stack: *fiber.Stack align(8),
     action_pending: bool align(8),
     c_stack: ?*fiber.CStack align(8),
     minor_tables: *minor_gc.Tables align(8),
+    marking_done: bool align(8),
+    sweeping_done: bool align(8),
     allocated_words: usize align(8),
     major_slice_epoch: usize align(8),
     local_roots: ?*const memory.Roots align(8),
@@ -220,6 +223,21 @@ fn stwHandler(state_: *State) void {
     }
 
     pollGcWork();
+}
+
+pub fn inStw() bool {
+    return state.?.inside_stw_handler;
+}
+
+// TODO
+pub fn tryRunOnAllDomainsWithSpinWork(sync: bool, handler: *const fn (*State, *anyopaque, usize, [*]*State) void, data: ?*anyopaque, leader_setup: *const fn (*State) void, enter_spin_callback: *const fn (*State, ?*anyopaque) void, enter_spin_data: ?*anyopaque) bool {
+    _ = sync;
+    _ = handler;
+    _ = data;
+    _ = leader_setup;
+    _ = enter_spin_callback;
+    _ = enter_spin_data;
+    return undefined;
 }
 
 fn handleIncomingInterrupts(interruptor: *Interruptor) bool {

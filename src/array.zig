@@ -8,7 +8,6 @@ const minor_gc = @import("minor_gc.zig");
 const fail = @import("fail.zig");
 const signal = @import("signal.zig");
 const event = @import("event.zig");
-const callback = @import("callback.zig");
 
 comptime {
     @export(size, .{ .name = "caml_array_length" });
@@ -18,27 +17,6 @@ comptime {
     @export(unsafeSet, .{ .name = "caml_array_unsafe_set" });
 }
 
-fn boundExn() value.Value {
-    const static = struct {
-        var exn =
-            std.atomic.Atomic(?*const value.Value).init(null);
-    };
-    if (static.exn.load(.Acquire)) |exn| {
-        return exn.*;
-    } else {
-        if (callback.namedValue("Pervasives.array_bound_error")) |exn| {
-            static.exn.store(exn, .Release);
-            return exn.*;
-        } else {
-            std.io.getStdErr().writeAll("Fatal error: exception Invalid_argument(\"index out of bounds\")\n") catch unreachable;
-            std.os.exit(2);
-        }
-    }
-}
-pub fn boundError() noreturn {
-    fail.raise(boundExn());
-}
-
 pub fn size(arr: value.Value) callconv(.C) usize {
     return value.size(arr);
 }
@@ -46,7 +24,7 @@ pub fn size(arr: value.Value) callconv(.C) usize {
 pub fn get(arr: value.Value, idx: value.Value) callconv(.C) value.Value {
     const idx_ = value.toInt(idx);
     if (idx_ < 0 or value.size(arr) <= idx_) {
-        boundError();
+        fail.boundError();
     }
     return value.field(arr, @intCast(idx_));
 }
@@ -54,18 +32,18 @@ pub fn get(arr: value.Value, idx: value.Value) callconv(.C) value.Value {
 pub fn set(arr: value.Value, idx: value.Value, v: value.Value) callconv(.C) value.Value {
     const idx_ = value.toInt(idx);
     if (idx_ < 0 or value.size(arr) <= idx_) {
-        boundError();
+        fail.boundError();
     }
     memory.setField(arr, @intCast(idx_), v);
     return value.unit;
 }
 
 pub fn unsafeGet(arr: value.Value, idx: value.Value) callconv(.C) value.Value {
-    return value.field(arr, @intCast(value.toInt(idx)));
+    return value.field(arr, value.toUint(idx));
 }
 
 pub fn unsafeSet(arr: value.Value, idx: value.Value, v: value.Value) callconv(.C) value.Value {
-    memory.setField(arr, @intCast(value.toInt(idx)), v);
+    memory.setField(arr, value.toUint(idx), v);
     return value.unit;
 }
 
@@ -79,7 +57,7 @@ pub fn make(len: value.Value, init: value.Value) callconv(.C) value.Value {
 
     defer signal.processPendingActions();
 
-    const len_ = @as(usize, @intCast(value.toInt(len)));
+    const len_ = value.toUint(len);
     if (len_ == 0) {
         return alloc.allocSmall0(0);
     } else if (len_ <= config.max_young_wsize) {
